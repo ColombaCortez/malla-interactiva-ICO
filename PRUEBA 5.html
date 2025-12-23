@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Progreso - Ingeniería Comercial</title>
+    <style>
+        /* --- CONFIGURACIÓN DE COLORES (PALETA MORADA) --- */
+        :root {
+            --color-fondo: #fbf8fd;       
+            --color-principal: #4a148c;   
+            --color-secundario: #7b1fa2;  
+            --color-texto: #212121;       
+            
+            /* Estados de los ramos */
+            --estado-aprobado-bg: #e1bee7;    
+            --estado-aprobado-borde: #6a1b9a; 
+            --estado-bloqueado-bg: #f5f5f5;   
+            --estado-disponible-borde: #d500f9; 
+        }
+
+        body { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            background-color: var(--color-fondo); 
+            margin: 0; padding: 20px; color: var(--color-texto); 
+        }
+
+        /* Encabezado */
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { color: var(--color-principal); margin: 0; font-size: 2.2em; text-transform: uppercase; letter-spacing: 1px; }
+        p.subtitle { color: #666; font-style: italic; margin-top: 5px; }
+
+        /* TABLERO DE CONTROL */
+        .dashboard { 
+            background: white; padding: 25px; border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(74, 20, 140, 0.1); 
+            max-width: 900px; margin: 0 auto 40px auto; 
+            border-top: 5px solid var(--color-principal);
+            position: sticky; top: 10px; z-index: 100;
+        }
+
+        .stats-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold; color: var(--color-principal); }
+        
+        .progress-container { background-color: #ede7f6; border-radius: 15px; height: 25px; overflow: hidden; }
+        .progress-bar { 
+            background: linear-gradient(90deg, var(--color-secundario), var(--color-principal)); 
+            height: 100%; width: 0%; transition: width 0.6s ease;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 0.85em; font-weight: bold;
+        }
+
+        /* LA MALLA */
+        .malla-scroll { 
+            display: flex; overflow-x: auto; padding-bottom: 30px; gap: 15px; 
+            scrollbar-width: thin; scrollbar-color: var(--color-principal) #eceff1;
+        }
+        
+        .semestre-col { 
+            min-width: 200px; max-width: 200px; flex-shrink: 0; 
+            background: transparent; display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .semestre-header { 
+            background-color: var(--color-principal); color: white; 
+            padding: 10px; text-align: center; border-radius: 6px; 
+            font-weight: bold; font-size: 0.95em; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* TARJETAS DE RAMOS */
+        .card-ramo { 
+            background: white; padding: 12px; border-radius: 6px; 
+            border-left: 5px solid #ccc; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; 
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative; min-height: 110px; /* Un poco más alto para nombres largos */
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .card-ramo:hover { transform: translateY(-3px); box-shadow: 0 5px 12px rgba(74, 20, 140, 0.15); }
+
+        .codigo { font-size: 0.65em; color: #b0bec5; text-transform: uppercase; margin-bottom: 4px; text-align: right; }
+        .nombre { font-size: 0.85em; font-weight: 700; line-height: 1.3; color: #333; margin-bottom: 4px;}
+        
+        /* ESTILO: Prerequisitos transparentes con nombres */
+        .req-text {
+            font-size: 0.7em; /* Un pelín más grande para que se lea el nombre */
+            color: rgba(0, 0, 0, 0.35); 
+            margin-bottom: auto; 
+            line-height: 1.2;
+            font-style: italic;
+        }
+
+        .creditos { font-size: 0.75em; align-self: flex-end; background: #f3e5f5; padding: 2px 6px; border-radius: 4px; color: #6a1b9a; margin-top: 8px;}
+
+        /* ESTADOS */
+        .card-ramo.aprobado { 
+            background-color: var(--estado-aprobado-bg); 
+            border-left-color: var(--estado-aprobado-borde); 
+        }
+        .card-ramo.aprobado .nombre { color: #4a148c; }
+        .card-ramo.aprobado::after { content: '✓'; position: absolute; top: 10px; right: 10px; color: var(--estado-aprobado-borde); font-weight: bold; font-size: 1.2em; }
+
+        .card-ramo.disponible { 
+            border-left-color: var(--estado-disponible-borde); 
+            background-color: white; 
+        }
+
+        .card-ramo.bloqueado { 
+            background-color: var(--estado-bloqueado-bg); 
+            border-left-color: #b0bec5; opacity: 0.7; cursor: not-allowed;
+        }
+        .card-ramo.bloqueado .nombre { color: #9e9e9e; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Malla Curricular Interactiva</h1>
+        <p class="subtitle">Mención Economía - Plan 9.0</p>
+    </header>
+
+    <div class="dashboard">
+        <div class="stats-row">
+            <span>Avance Global</span>
+            <span id="texto-progreso">0%</span>
+        </div>
+        <div class="progress-container">
+            <div id="barra-progreso" class="progress-bar">0%</div>
+        </div>
+        <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 0.9em; color: #666;">
+            <span>Créditos: <b id="texto-creditos">0</b> / <span id="total-creditos-malla"></span></span>
+            <span>Ramos Aprobados: <b id="conteo-ramos">0</b></span>
+        </div>
+    </div>
+
+    <div class="malla-scroll" id="contenedor-malla">
+        </div>
+
+    <script>
+        // --- DATOS (Malla Economía Plan 9.0) ---
+        const malla = [
+            { id: 'ICO09111', sem: 1, nombre: 'Matemáticas I', cr: 6, req: [] },
+            { id: 'ICO09112', sem: 1, nombre: 'Programación', cr: 6, req: [] },
+            { id: 'ICO09113', sem: 1, nombre: 'Fundamentos de admin. y negocios I', cr: 6, req: [] },
+            { id: 'ICO09114', sem: 1, nombre: 'Taller de comunicación I', cr: 6, req: [] },
+            { id: 'CIG1012',  sem: 1, nombre: 'Inglés I', cr: 5, req: [] },
+            { id: 'ICO09121', sem: 2, nombre: 'Matemáticas II', cr: 6, req: ['ICO09111'] },
+            { id: 'ICO09122', sem: 2, nombre: 'Microeconomía I', cr: 6, req: [] },
+            { id: 'ICO09123', sem: 2, nombre: 'Contabilidad I', cr: 6, req: [] },
+            { id: 'ICO09124', sem: 2, nombre: 'Fundamentos de admin. y negocios II', cr: 6, req: ['ICO09113'] },
+            { id: 'CIG1013',  sem: 2, nombre: 'Inglés II', cr: 5, req: ['CIG1012'] },
+            { id: 'ICO09211', sem: 3, nombre: 'Matemáticas III', cr: 6, req: ['ICO09121'] },
+            { id: 'ICO09212', sem: 3, nombre: 'Estadística I', cr: 6, req: ['ICO09112', 'ICO09121'] },
+            { id: 'ICO09213', sem: 3, nombre: 'Macroeconomía I', cr: 6, req: ['ICO09111', 'ICO09122'] },
+            { id: 'ICO09214', sem: 3, nombre: 'Tecnología y Empresa', cr: 6, req: ['ICO09112'] },
+            { id: 'ICO09215', sem: 3, nombre: 'Taller de comunicación II', cr: 3, req: ['ICO09114'] },
+            { id: 'CIG1014',  sem: 3, nombre: 'Inglés III', cr: 5, req: ['CIG1013'] },
+            { id: 'ICO09221', sem: 4, nombre: 'Estadística II', cr: 6, req: ['ICO09212'] },
+            { id: 'ICO09222', sem: 4, nombre: 'Microeconomía II', cr: 6, req: ['ICO09121', 'ICO09122'] },
+            { id: 'ICO09223', sem: 4, nombre: 'Contabilidad II', cr: 6, req: ['ICO09123', 'ICO09214'] },
+            { id: 'ICO09224', sem: 4, nombre: 'Personas y equipos', cr: 6, req: ['ICO09124'] }, 
+            { id: 'ICO09225', sem: 4, nombre: 'Taller de Liderazgo y trabajo en equipo', cr: 3, req: ['ICO09215', 'ICO09124'] },
+            { id: 'ICO09226', sem: 4, nombre: 'Inglés IV', cr: 5, req: ['CIG1014'] },
+            { id: 'ICO09311', sem: 5, nombre: 'Econometría I', cr: 6, req: ['ICO09211', 'ICO09221'] },
+            { id: 'ICO09312', sem: 5, nombre: 'Macroeconomía II', cr: 6, req: ['ICO09211', 'ICO09213'] },
+            { id: 'ICO09313', sem: 5, nombre: 'Finanzas I', cr: 6, req: ['ICO09223', 'ICO09221'] },
+            { id: 'ICO09314', sem: 5, nombre: 'Estrategia', cr: 6, req: ['ICO09224', 'ICO09214'] },
+            { id: 'ICO09315', sem: 5, nombre: 'Taller de Ética en la toma de decisiones', cr: 3, req: ['ICO09224', 'ICO09225'] },
+            { id: 'ICO09316', sem: 5, nombre: 'Inglés V', cr: 5, req: ['ICO09226'] },
+            { id: 'ICO09321', sem: 6, nombre: 'Ciencia de Datos', cr: 6, req: ['ICO09311', 'ICO09214'] },
+            { id: 'ICO09322', sem: 6, nombre: 'Globalización y sustentabilidad', cr: 6, req: ['ICO09221', 'ICO09312', 'ICO09314'] },
+            { id: 'ICO09323', sem: 6, nombre: 'Marketing', cr: 6, req: ['ICO09221', 'ICO09314'] },
+            { id: 'ICO09324', sem: 6, nombre: 'Gestión de operaciones', cr: 6, req: ['ICO09221', 'ICO09314'] },
+            { id: 'CFG_1',    sem: 6, nombre: 'CFG I', cr: 5, req: [] },
+            { id: 'ICO09415', sem: 7, nombre: 'Matemáticas para Economía', cr: 6, req: ['ICO09321'] },
+            { id: 'ICO09416', sem: 7, nombre: 'Econometría II', cr: 6, req: ['ICO09321'] },
+            { id: 'ICO09417', sem: 7, nombre: 'Teoría de juego', cr: 6, req: ['ICO09222', 'ICO09322'] },
+            { id: 'ICO09418', sem: 7, nombre: 'Crecimiento y desarrollo económico', cr: 6, req: ['ICO09312'] },
+            { id: 'CFG_2',    sem: 7, nombre: 'CFG II', cr: 5, req: ['CFG_1'] },
+            { id: 'ICO09425', sem: 8, nombre: 'Ciencia de Datos para Economía', cr: 6, req: ['ICO09416'] },
+            { id: 'ICO09426', sem: 8, nombre: 'Econ. de la información y comp. imperfecta', cr: 6, req: ['ICO09417'] },
+            { id: 'ICO09427', sem: 8, nombre: 'Política económica', cr: 6, req: ['ICO09418'] },
+            { id: 'ICO09428', sem: 8, nombre: 'Taller de simulación económica', cr: 6, req: ['ICO09415', 'ICO09312'] },
+            { id: 'CFG_3',    sem: 8, nombre: 'CFG III', cr: 5, req: ['CFG_2'] },
+            { id: 'ICO09OPT1', sem: 9, nombre: 'Electivo I', cr: 6, req: [] },
+            { id: 'ICO09OPT2', sem: 9, nombre: 'Electivo II', cr: 6, req: [] },
+            { id: 'ICO09OPT3', sem: 9, nombre: 'Electivo III', cr: 6, req: [] },
+            { id: 'ICO09OPT4', sem: 9, nombre: 'Electivo IV', cr: 6, req: [] },
+            { id: 'CFG_4',     sem: 9, nombre: 'CFG IV', cr: 5, req: ['CFG_3'] },
+            { id: 'ICO099522', sem: 10, nombre: 'Práctica profesional', cr: 24, req: ['250CR'] },
+            { id: 'ICO09524',  sem: 10, nombre: 'Desarrollo de carrera y E-portafolio', cr: 6, req: ['250CR'] },
+        ];
+
+        let aprobados = JSON.parse(localStorage.getItem('mallaEconomia_aprobados_v2')) || [];
+        const totalCreditosMalla = malla.reduce((acc, item) => acc + item.cr, 0);
+
+        function guardarProgreso() {
+            localStorage.setItem('mallaEconomia_aprobados_v2', JSON.stringify(aprobados));
+            renderizar();
+        }
+
+        function getCreditosAprobados() {
+            return malla.filter(r => aprobados.includes(r.id)).reduce((acc, r) => acc + r.cr, 0);
+        }
+
+        function verificarRequisitos(ramo) {
+            if (ramo.req.includes('250CR')) return getCreditosAprobados() >= 250;
+            if (ramo.req.length === 0) return true;
+            return ramo.req.every(rId => aprobados.includes(rId));
+        }
+
+        function toggleRamo(id) {
+            const index = aprobados.indexOf(id);
+            const ramo = malla.find(r => r.id === id);
+
+            if (index === -1 && !verificarRequisitos(ramo)) {
+                alert("🔒 Requisito Pendiente\nNo puedes tomar este ramo hasta aprobar sus pre-requisitos.");
+                return;
+            }
+
+            if (index > -1) {
+                aprobados.splice(index, 1);
+            } else {
+                aprobados.push(id);
+            }
+            guardarProgreso();
+        }
+
+        function renderizar() {
+            const contenedor = document.getElementById('contenedor-malla');
+            contenedor.innerHTML = ''; 
+            const misCreditos = getCreditosAprobados();
+            const porcentaje = Math.round((misCreditos / totalCreditosMalla) * 100);
+
+            document.getElementById('texto-progreso').innerText = porcentaje + '%';
+            document.getElementById('barra-progreso').style.width = porcentaje + '%';
+            document.getElementById('barra-progreso').innerText = porcentaje > 5 ? porcentaje + '%' : '';
+            document.getElementById('texto-creditos').innerText = misCreditos;
+            document.getElementById('total-creditos-malla').innerText = totalCreditosMalla;
+            document.getElementById('conteo-ramos').innerText = aprobados.length;
+
+            for (let i = 1; i <= 10; i++) {
+                const col = document.createElement('div');
+                col.className = 'semestre-col';
+                col.innerHTML = `<div class="semestre-header">Semestre ${i}</div>`;
+                
+                malla.filter(r => r.sem === i).forEach(ramo => {
+                    const div = document.createElement('div');
+                    const aprobado = aprobados.includes(ramo.id);
+                    const desbloqueado = verificarRequisitos(ramo);
+                    
+                    let estadoClass = 'bloqueado';
+                    if (aprobado) estadoClass = 'aprobado';
+                    else if (desbloqueado) estadoClass = 'disponible';
+
+                    // --- NUEVA LÓGICA: Traducir IDs a Nombres ---
+                    let reqNames = [];
+                    if (ramo.req.length > 0) {
+                        reqNames = ramo.req.map(reqId => {
+                            if (reqId === '250CR') return '250 Créditos'; // Caso especial
+                            const ramoReq = malla.find(r => r.id === reqId);
+                            return ramoReq ? ramoReq.nombre : reqId;
+                        });
+                    }
+                    const reqString = reqNames.length > 0 ? `Req: ${reqNames.join(', ')}` : '';
+
+                    div.className = `card-ramo ${estadoClass}`;
+                    div.onclick = () => toggleRamo(ramo.id);
+                    div.innerHTML = `
+                        <div class="codigo">${ramo.id}</div>
+                        <div class="nombre">${ramo.nombre}</div>
+                        <div class="req-text">${reqString}</div>
+                        <div class="creditos">${ramo.cr} Cr.</div>
+                    `;
+                    col.appendChild(div);
+                });
+                contenedor.appendChild(col);
+            }
+        }
+        renderizar();
+    </script>
+</body>
+</html>
